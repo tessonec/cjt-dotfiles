@@ -169,7 +169,7 @@ cmd_push() {
     esac
   done
   cz git -- add -A
-  if cz git -- diff --cached --quiet; then say "Nothing to commit"
+  if git -C "$(cz source-path)" diff --cached --quiet; then say "Nothing to commit"
   else cz git -- commit -q -m "$msg"; say "Committed: $msg"; fi
   cz git -- pull --rebase -q || die "Merge conflict — resolve in: $(cz source-path)"
   cz git -- push -q || die "Push failed (this clone is read-only HTTPS; push from an account with an SSH key)"
@@ -194,7 +194,7 @@ cmd_import() {
   [ -d "$src/.git" ] || die "Run 'cjt-casamia init' first"
   tar xzf "$f" -C "$src"
   cz git -- add -A
-  if cz git -- diff --cached --quiet; then say "Repo already up to date"
+  if git -C "$(cz source-path)" diff --cached --quiet; then say "Repo already up to date"
   else
     cz git -- commit -q -m "import $(basename "$f")"; say "Committed"
     cz git -- pull --rebase -q && cz git -- push -q && say "Pushed" || warn "Not pushed (read-only clone?)"
