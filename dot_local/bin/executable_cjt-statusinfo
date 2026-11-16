@@ -1,0 +1,25 @@
+#!/bin/sh
+# cjt-statusinfo — small facts for status bars (GNU screen, tmux). Works on Linux, NAS and macOS.
+case $1 in
+  uptime)
+    if [ -r /proc/uptime ]; then
+      s=$(cut -d. -f1 /proc/uptime)
+    else
+      b=$(sysctl -n kern.boottime 2>/dev/null | sed 's/.*sec = \([0-9]*\).*/\1/')
+      s=$(( $(date +%s) - ${b:-$(date +%s)} ))
+    fi
+    d=$((s / 86400)); h=$((s % 86400 / 3600)); m=$((s % 3600 / 60))
+    if [ $d -gt 0 ]; then echo "${d}d ${h}h"; elif [ $h -gt 0 ]; then echo "${h}h ${m}m"; else echo "${m}m"; fi
+    ;;
+  ip)
+    ip=
+    if command -v ip >/dev/null 2>&1; then
+      ip=$(ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p' | head -1)
+    fi
+    [ -z "$ip" ] && command -v ipconfig >/dev/null 2>&1 && \
+      ip=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null)
+    [ -z "$ip" ] && ip=$(hostname -i 2>/dev/null | awk '{print $1}')
+    echo "${ip:-offline}"
+    ;;
+  *) echo "usage: cjt-statusinfo uptime|ip" >&2; exit 1 ;;
+esac

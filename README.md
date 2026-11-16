@@ -46,6 +46,8 @@ Put them in `~/.zshrc.local`, which is not managed: conda init, local aliases, s
 | `dot_zshrc.tmpl` | `~/.zshrc`, with NAS and macOS parts chosen automatically |
 | `dot_p10k.zsh` | the prompt |
 | `dot_profile.tmpl` | NAS only: starts Entware's zsh at login |
+| `dot_screenrc.tmpl` | GNU screen: status bar in the prompt's palette (host, session, windows, uptime, IP, date); syntax picked per screen version |
+| `dot_local/bin/executable_cjt-statusinfo` | Uptime and IP for status bars, on Linux, NAS and macOS |
 | `dot_local/bin/executable_cjt-casamia` | the command itself |
 | `.chezmoiexternal.toml` | oh-my-zsh, Powerlevel10k and plugins, refreshed weekly |
 | `run_onchange_before_10-packages.sh.tmpl` | installs packages (Nerd Font, zsh, git, terminfo…) |
