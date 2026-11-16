@@ -39,7 +39,11 @@ setopt share_history hist_ignore_dups hist_ignore_space
 path=(~/.local/bin $path)
 # 'sudo cjt-casamia ...' works although sudo's PATH lacks ~/.local/bin
 sudo() { if [[ $1 == cjt-casamia ]]; then shift; command sudo ~/.local/bin/cjt-casamia "$@"; else command sudo "$@"; fi }
-(( $+commands[cjt-casamia] )) && { cjt-casamia autopull &! } 2>/dev/null
+(( $+commands[cjt-casamia] )) && { cjt-casamia autopull >/dev/null 2>&1 &! }
 
 [[ -r ~/.p10k.zsh ]] && source ~/.p10k.zsh
 [[ -r ~/.zshrc.local ]] && source ~/.zshrc.local
+
+# No inverse '%' / '#' marker line after output that lacks a final newline
+PROMPT_EOL_MARK=''
+true   # start every shell with exit status 0 (no red '1' on the first prompt)
