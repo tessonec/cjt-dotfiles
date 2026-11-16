@@ -60,18 +60,54 @@ pick_repo() {
   fi
 }
 
+# Make an existing machine safe to take over: back up old configs, keep conda,
+# and move away oh-my-zsh/theme/plugin folders that are not git clones
+prepare_home() {
+  BK=$HOME/.local/state/cjt-casamia/backup-$(date +%Y%m%d-%H%M%S)
+  backup() { [ -e "$1" ] || return 0; mkdir -p "$BK"; mv "$1" "$BK/"; warn "Moved old $1 to $BK/"; }
+
+  # conda init block -> ~/.zshrc.local (not managed, loaded at the end of .zshrc)
+  if grep -q '>>> conda initialize >>>' "$HOME/.zshrc" 2>/dev/null &&
+     ! grep -q '>>> conda initialize >>>' "$HOME/.zshrc.local" 2>/dev/null; then
+    awk '/>>> conda initialize >>>/,/<<< conda initialize <<</' "$HOME/.zshrc" >> "$HOME/.zshrc.local"
+    say "Kept your conda setup in ~/.zshrc.local"
+    command -v conda >/dev/null 2>&1 && conda config --set changeps1 False >/dev/null 2>&1 || true
+  fi
+
+  # first takeover only: keep copies of the old hand-made configs
+  if [ ! -d "$(cz source-path 2>/dev/null)/.git" ]; then
+    for f in .zshrc .p10k.zsh; do
+      [ -f "$HOME/$f" ] && { mkdir -p "$BK"; cp "$HOME/$f" "$BK/"; }
+    done
+    [ -d "$BK" ] && say "Copies of your old configs are in $BK/"
+  fi
+
+  # chezmoi updates these with git pull, so they must be git clones (or absent)
+  for d in .oh-my-zsh/custom/themes/powerlevel10k \
+           .oh-my-zsh/custom/plugins/zsh-autosuggestions \
+           .oh-my-zsh/custom/plugins/zsh-syntax-highlighting \
+           .oh-my-zsh; do
+    [ -d "$HOME/$d" ] && [ ! -d "$HOME/$d/.git" ] && backup "$HOME/$d"
+  done
+  return 0
+}
+
 cmd_init() {
   if [ -d /volume1 ] && [ ! -x /opt/bin/opkg ]; then
     die "This NAS has no Entware yet. Install Entware first, then re-run."
   fi
+  command -v git >/dev/null 2>&1 || die "git is needed (NAS: opkg install git git-http; Mac: xcode-select --install)"
   cd "$HOME"
   install_chezmoi
+  prepare_home
   if [ -d "$(cz source-path 2>/dev/null)/.git" ]; then
-    say "Already initialised — updating"; cz update --force
+    say "Already initialised — refreshing config and updating"
+    cz init                # regenerates ~/.config/chezmoi/chezmoi.toml (no pager, etc.)
+    cz update --force
   else
     repo=$(pick_repo)
     say "Applying dotfiles from $repo as $(id -un)@$(hostname)"
-    cz init --apply "$repo"
+    cz init --apply --force "$repo"
   fi
   mkdir -p "$CACHE"; touch "$STAMP"
   if [ "$(id -u)" = 0 ]; then say "Done for root. Use: sudo -i"
