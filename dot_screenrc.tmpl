@@ -10,7 +10,6 @@ defscrollback 20000
 vbell off
 term screen-256color
 termcapinfo xterm* 'Co#256:AB=\E[48;5;%dm:AF=\E[38;5;%dm'
-termcapinfo xterm* ti@:te@
 defbce on
 
 # Complementary info, refreshed every 60 s (the prompt already shows load, RAM, clock)
@@ -20,11 +19,11 @@ backtick 2 60 60 cjt-statusinfo ip
 hardstatus alwayslastline
 {{- if regexMatch "[Vv]ersion [5-9]" $v }}
 # screen 5+: 256 colours as fg;bg
-hardstatus string '%{180;236}  %H %{245;236} %S %{250;235}  %-w%{152;23}  %n %t %{250;235}%+w%=%{109;235}  %1` %{140;235}  %2` %{245;235}  %D %d %M %{243;235}  %c '
+hardstatus string '%{180;236}  %H %{245;236}%{250;235}  %-w%{152;23}  %n %t %{250;235}%+w%=%{109;235}  %1` %{140;235}  %2` %{245;235}  %D %d %M %{243;235}  %c '
 caption string '%?%F%{152;23}%:%{245;236}%?  %n %t %{-}'
 {{- else }}
 # screen 4.x: 8-colour fallback (bg letter, fg letter)
-hardstatus string '%{= kY}  %H %{= kw} %S  %-w%{= bW}  %n %t %{= kw}%+w%=%{= kc}  %1` %{= km}  %2` %{= kw}  %D %d %M   %c '
+hardstatus string '%{= kY}  %H %{= kw} %-w%{= bW}  %n %t %{= kw}%+w%=%{= kc}  %1` %{= km}  %2` %{= kw}  %D %d %M   %c '
 caption string '%?%F%{= bW}%:%{= kw}%?  %n %t '
 {{- end }}
 

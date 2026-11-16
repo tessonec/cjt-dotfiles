@@ -5,7 +5,7 @@ case $1 in
     if [ -r /proc/uptime ]; then
       s=$(cut -d. -f1 /proc/uptime)
     else
-      b=$(sysctl -n kern.boottime 2>/dev/null | sed 's/.*sec = \([0-9]*\).*/\1/')
+      b=$(sysctl -n kern.boottime 2>/dev/null | sed -n 's/^{ *sec = \([0-9]*\).*/\1/p')
       s=$(( $(date +%s) - ${b:-$(date +%s)} ))
     fi
     d=$((s / 86400)); h=$((s % 86400 / 3600)); m=$((s % 3600 / 60))
