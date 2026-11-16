@@ -124,6 +124,9 @@ ensure_login_zsh() {
   grep -q 'cjt-casamia' "$f" 2>/dev/null || { printf '\n%s\n' "$line" >> "$f"; say "Logins now start zsh (via $(basename "$f"))"; }
 }
 
+# Files changed on this machine since the last apply (first status column)
+local_edits() { chezmoi --no-pager status 2>/dev/null | awk 'substr($0,1,1)!=" " {print substr($0,4)}'; }
+
 cmd_init() {
   if [ -d /volume1 ] && [ ! -x /opt/bin/opkg ]; then
     die "This NAS has no Entware yet. Install Entware first, then re-run."
@@ -148,8 +151,8 @@ cmd_init() {
 }
 
 cmd_pull() {
-  if [ -n "$(cz status 2>/dev/null)" ]; then
-    warn "Local edits not yet pushed:"; cz status
+  if [ -n "$(local_edits)" ]; then
+    warn "Local edits not yet pushed:"; local_edits
     warn "Run 'cjt-casamia push' first (or 'cjt-casamia sync')."; exit 1
   fi
   say "Pulling"; cz update --force
@@ -158,12 +161,13 @@ cmd_pull() {
 
 cmd_push() {
   msg=${1:-"$(id -un)@$(hostname): $(date '+%Y-%m-%d %H:%M')"}
-  cz re-add
-  left=$(cz status 2>/dev/null || true)
-  if [ -n "$left" ]; then
-    warn "Still different (templates — change them with 'cjt-casamia edit FILE'):"
-    printf '%s\n' "$left" >&2
-  fi
+  # take over only the files edited on this machine (never overwrite newer repo files)
+  for f in $(local_edits); do
+    case $f in
+      .zshrc|.profile) warn "~/$f is a template: change it with 'cjt-casamia edit ~/$f'" ;;
+      *) cz add "$HOME/$f" && say "Took over ~/$f" ;;
+    esac
+  done
   cz git -- add -A
   if cz git -- diff --cached --quiet; then say "Nothing to commit"
   else cz git -- commit -q -m "$msg"; say "Committed: $msg"; fi
@@ -207,16 +211,26 @@ cmd_auto() {
   esac
 }
 
-# Run in the background from .zshrc: at most every 12 h, and only if nothing is edited locally
+# Run in the background from .zshrc at every shell start:
+#  - on a machine that can push (SSH remote), publish repo changes made there right away
+#  - pull at most every 12 h
+#  - apply only when nothing was edited locally
 cmd_autopull() {
   [ -e "$OFF" ] && exit 0
   command -v chezmoi >/dev/null 2>&1 || exit 0
-  mkdir -p "$CACHE"
-  [ -n "$(find "$STAMP" -mmin -720 2>/dev/null)" ] && exit 0
-  touch "$STAMP"
-  [ -z "$(chezmoi status 2>/dev/null)" ] || exit 0
-  chezmoi git -- pull --ff-only -q >/dev/null 2>&1 || exit 0
-  CASAMIA_NONINTERACTIVE=1 chezmoi apply --force --no-tty >/dev/null 2>&1 || true
+  src=$(chezmoi --no-pager source-path 2>/dev/null) || exit 0
+  mkdir -p "$CACHE"; apply=
+  if [ -n "$(git -C "$src" status --porcelain 2>/dev/null)" ] &&
+     git -C "$src" remote get-url origin 2>/dev/null | grep -q '^git@'; then
+    ( cmd_push "auto: $(id -un)@$(hostname) $(date '+%Y-%m-%d %H:%M')" ) >/dev/null 2>&1 && apply=1
+  fi
+  if [ -z "$(find "$STAMP" -mmin -720 2>/dev/null)" ]; then
+    touch "$STAMP"
+    git -C "$src" pull --ff-only -q >/dev/null 2>&1 && apply=1
+  fi
+  [ -n "$apply" ] && [ -z "$(local_edits)" ] &&
+    CASAMIA_NONINTERACTIVE=1 chezmoi --no-pager apply --force --no-tty >/dev/null 2>&1
+  exit 0
 }
 
 case ${1:-help} in
