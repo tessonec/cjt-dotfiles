@@ -5,6 +5,7 @@ SUDO=; [ "$(id -u)" = 0 ] || SUDO="sudo${CASAMIA_NONINTERACTIVE:+ -n}"
 # Homebrew refuses to run as root; the font is per Mac, installed from your own account
 if [ "$(id -u)" != 0 ] && command -v brew >/dev/null; then
   brew list --cask font-meslo-lg-nerd-font >/dev/null 2>&1 || brew install --cask font-meslo-lg-nerd-font
+  brew list screen >/dev/null 2>&1 || brew install screen     # screen 5: 256 colours, icons
 fi
 {{- else if stat "/opt/bin/opkg" }}
 for p in zsh git git-http curl ca-certificates terminfo screen; do
