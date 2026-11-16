@@ -28,6 +28,7 @@ if [ "$(id -u)" = 0 ] && [ -n "$SUDO_USER" ]; then
 fi
 [ -d /opt/bin ] && case ":$PATH:" in *:/opt/bin:*) ;; *) PATH=/opt/bin:/opt/sbin:$PATH ;; esac
 PATH=$HOME/.local/bin:$PATH; export PATH
+GIT_TERMINAL_PROMPT=0; export GIT_TERMINAL_PROMPT   # never ask for a GitHub password
 # Own temp dir: some servers have a tiny or full /tmp
 TMPDIR=${XDG_CACHE_HOME:-$HOME/.cache}/cjt-casamia/tmp; mkdir -p "$TMPDIR"; export TMPDIR
 
@@ -171,8 +172,15 @@ cmd_push() {
   cz git -- add -A
   if git -C "$(cz source-path)" diff --cached --quiet; then say "Nothing to commit"
   else cz git -- commit -q -m "$msg"; say "Committed: $msg"; fi
-  cz git -- pull --rebase -q || die "Merge conflict — resolve in: $(cz source-path)"
-  cz git -- push -q || die "Push failed (this clone is read-only HTTPS; push from an account with an SSH key)"
+  src=$(cz source-path)
+  git -C "$src" pull --rebase -q || die "Merge conflict — resolve in: $src"
+  if [ "$(git -C "$src" rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)" = 0 ]; then
+    say "Nothing to push"; return 0
+  fi
+  case $(git -C "$src" remote get-url origin) in
+    https:*) die "This machine can only pull (no GitHub SSH key here). Make the change on your Mac, or add an SSH key." ;;
+  esac
+  git -C "$src" push -q || die "Push failed"
   say "Pushed"
 }
 
