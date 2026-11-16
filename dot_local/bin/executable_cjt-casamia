@@ -15,6 +15,7 @@
 #   status            what differs locally / what is unpushed
 #   diff              show what 'apply' would change
 #   apply             apply the local copy of the repo (after moving old stuff aside)
+#   reset             throw away local changes and match GitHub exactly
 #   import FILE.tgz   unpack a new version of the repo, commit, push and apply
 #   auto [on|off]     background pull at shell start, at most every 12 h (default: on)
 #
@@ -192,6 +193,16 @@ cmd_status() {
   echo "Repo:"; cz git -- status -sb
 }
 
+# Throw away anything local and match GitHub exactly (repo copy and the managed files)
+cmd_reset() {
+  src=$(cz source-path)
+  git -C "$src" rebase --abort >/dev/null 2>&1 || true
+  git -C "$src" merge --abort  >/dev/null 2>&1 || true
+  git -C "$src" fetch -q origin && git -C "$src" reset -q --hard origin/main && git -C "$src" clean -qfd
+  CASAMIA_NONINTERACTIVE= cz apply --force
+  say "This machine now matches GitHub"
+}
+
 cmd_diff()  { cz diff; }
 cmd_apply() { prepare_home; cz apply --force; say "Applied"; }
 
@@ -249,10 +260,11 @@ case ${1:-help} in
   add)          shift; cmd_add "$@" ;;
   edit)         shift; cmd_edit "$@" ;;
   status|st)    cmd_status ;;
+  reset)        cmd_reset ;;
   diff)         cmd_diff ;;
   apply)        cmd_apply ;;
   import)       shift; cmd_import "$@" ;;
   auto)         shift; cmd_auto "$@" ;;
   autopull)     cmd_autopull ;;
-  *) sed -n '2,22p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//' ;;
+  *) sed -n '2,23p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//' ;;
 esac
