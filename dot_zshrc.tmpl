@@ -7,7 +7,10 @@ export PATH=/opt/bin:/opt/sbin:$PATH
 {{- end }}
 {{- if eq .chezmoi.os "darwin" }}
 
-[[ -x /opt/homebrew/bin/brew ]] && eval "$(/opt/homebrew/bin/brew shellenv)"
+if [[ -x /opt/homebrew/bin/brew ]]; then
+  if (( EUID )); then eval "$(/opt/homebrew/bin/brew shellenv)"
+  else path=(/opt/homebrew/bin /opt/homebrew/sbin $path); fi   # brew refuses to run as root
+fi
 {{- end }}
 
 # Powerlevel10k instant prompt (keep near the top)

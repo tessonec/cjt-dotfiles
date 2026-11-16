@@ -1,6 +1,6 @@
 # cjt-dotfiles — one shell setup on every machine
 
-zsh, oh-my-zsh, Powerlevel10k and the plugins, kept identical on macOS, Linux and NAS boxes (Asustor ADM, Synology DSM with Entware), for your user and for root. The `cjt-casamia` command handles everything; [chezmoi](https://www.chezmoi.io) and git do the work underneath.
+zsh, oh-my-zsh, Powerlevel10k and the plugins, kept identical on macOS, Linux and NAS boxes (Asustor ADM, Synology DSM with Entware), for your user and for root. The `cjt-casamia` command handles everything. [chezmoi](https://www.chezmoi.io) and git do the work underneath, but you never run them yourself.
 
 ## New machine: one command
 
@@ -29,13 +29,15 @@ sudo cjt-casamia init
 | `cjt-casamia add ~/.tmux.conf ~/.vimrc ~/.screenrc ~/.config/mc/ini` | starts managing more files; then run `push` |
 | `cjt-casamia edit ~/.zshrc` | edits a templated file (`.zshrc`, `.profile`) |
 | `cjt-casamia status` | shows what differs locally and what is unpushed |
+| `cjt-casamia diff` / `apply` | previews or applies the local copy of the repo |
+| `cjt-casamia import FILE.tar.gz` | unpacks a new version of the repo, then commits, pushes and applies it |
 | `cjt-casamia auto on/off` | turns the background pull at shell start on or off (at most every 12 h; on by default) |
 
 The automatic pull never overwrites local edits. If a file has been changed on the machine, it waits until you run `push` or `sync`.
 
 ## Machine-specific settings
 
-Put them in `~/.zshrc.local`, which is not managed: conda init, local aliases, secrets. On the Mac, move the `conda initialize` block there before the first `init`, then run `conda config --set changeps1 False`.
+Put them in `~/.zshrc.local`, which is not managed: conda init, local aliases, secrets. `init` moves an existing `conda initialize` block there automatically.
 
 ## What is in the repo
 

@@ -13,7 +13,12 @@
 #   add FILE...       start managing more files (e.g. ~/.tmux.conf ~/.vimrc ~/.config/mc/ini)
 #   edit FILE         edit a managed file (templates too) and apply
 #   status            what differs locally / what is unpushed
+#   diff              show what 'apply' would change
+#   apply             apply the local copy of the repo (after moving old stuff aside)
+#   import FILE.tgz   unpack a new version of the repo, commit, push and apply
 #   auto [on|off]     background pull at shell start, at most every 12 h (default: on)
+#
+# You never need to run chezmoi or git yourself.
 set -e
 
 # Under sudo, HOME can still point at the calling user's home: always use root's own
@@ -23,6 +28,8 @@ if [ "$(id -u)" = 0 ] && [ -n "$SUDO_USER" ]; then
 fi
 [ -d /opt/bin ] && case ":$PATH:" in *:/opt/bin:*) ;; *) PATH=/opt/bin:/opt/sbin:$PATH ;; esac
 PATH=$HOME/.local/bin:$PATH; export PATH
+# Own temp dir: some servers have a tiny or full /tmp
+TMPDIR=${XDG_CACHE_HOME:-$HOME/.cache}/cjt-casamia/tmp; mkdir -p "$TMPDIR"; export TMPDIR
 
 REPO_SSH=${CASAMIA_REPO_SSH:-git@github.com:tessonec/cjt-dotfiles.git}
 REPO_HTTPS=${CASAMIA_REPO_HTTPS:-https://github.com/tessonec/cjt-dotfiles.git}
@@ -92,6 +99,31 @@ prepare_home() {
   return 0
 }
 
+# Linux servers: make logins land in zsh without chsh (works with LDAP accounts too)
+ensure_login_zsh() {
+  # macOS root defaults to /bin/sh: switch it to zsh so 'sudo -i' gets the prompt
+  if [ "$(uname)" = Darwin ]; then
+    if [ "$(id -u)" = 0 ] && ! dscl . -read /Users/root UserShell 2>/dev/null | grep -q zsh; then
+      chsh -s /bin/zsh root >/dev/null 2>&1 && say "root's shell is now zsh"
+    fi
+    return 0
+  fi
+  [ "$(uname)" = Linux ] && [ ! -x /opt/bin/opkg ] || return 0
+  if ! command -v zsh >/dev/null 2>&1; then
+    if command -v apt-get >/dev/null 2>&1 && { [ "$(id -u)" = 0 ] || sudo -n true 2>/dev/null; }; then
+      say "Installing zsh"; $( [ "$(id -u)" = 0 ] || echo sudo ) apt-get install -y -qq zsh >/dev/null
+    else
+      warn "zsh is not installed here and I cannot install it — ask the admins for 'zsh'"; return 0
+    fi
+  fi
+  case $(basename "${SHELL:-}") in zsh) return 0 ;; esac
+  line='[ -x "$(command -v zsh)" ] && [ -z "$ZSH_VERSION" ] && [ -t 1 ] && exec zsh -l  # cjt-casamia'
+  if [ -f "$HOME/.bash_profile" ]; then f=$HOME/.bash_profile
+  elif [ -f "$HOME/.bash_login" ]; then f=$HOME/.bash_login
+  else f=$HOME/.profile; fi
+  grep -q 'cjt-casamia' "$f" 2>/dev/null || { printf '\n%s\n' "$line" >> "$f"; say "Logins now start zsh (via $(basename "$f"))"; }
+}
+
 cmd_init() {
   if [ -d /volume1 ] && [ ! -x /opt/bin/opkg ]; then
     die "This NAS has no Entware yet. Install Entware first, then re-run."
@@ -109,6 +141,7 @@ cmd_init() {
     say "Applying dotfiles from $repo as $(id -un)@$(hostname)"
     cz init --apply --force "$repo"
   fi
+  ensure_login_zsh
   mkdir -p "$CACHE"; touch "$STAMP"
   if [ "$(id -u)" = 0 ]; then say "Done for root. Use: sudo -i"
   else say "Done. Start a new shell; for root: sudo cjt-casamia init"; fi
@@ -147,6 +180,24 @@ cmd_status() {
   echo "Repo:"; cz git -- status -sb
 }
 
+cmd_diff()  { cz diff; }
+cmd_apply() { prepare_home; cz apply --force; say "Applied"; }
+
+cmd_import() {
+  f=$1; [ -f "$f" ] || die "usage: cjt-casamia import FILE.tar.gz"
+  case $f in /*) ;; *) f=$PWD/$f ;; esac
+  src=$(cz source-path 2>/dev/null) || die "Run 'cjt-casamia init' first"
+  [ -d "$src/.git" ] || die "Run 'cjt-casamia init' first"
+  tar xzf "$f" -C "$src"
+  cz git -- add -A
+  if cz git -- diff --cached --quiet; then say "Repo already up to date"
+  else
+    cz git -- commit -q -m "import $(basename "$f")"; say "Committed"
+    cz git -- pull --rebase -q && cz git -- push -q && say "Pushed" || warn "Not pushed (read-only clone?)"
+  fi
+  cmd_apply
+}
+
 cmd_auto() {
   mkdir -p "$CACHE"
   case $1 in
@@ -176,7 +227,10 @@ case ${1:-help} in
   add)          shift; cmd_add "$@" ;;
   edit)         shift; cmd_edit "$@" ;;
   status|st)    cmd_status ;;
+  diff)         cmd_diff ;;
+  apply)        cmd_apply ;;
+  import)       shift; cmd_import "$@" ;;
   auto)         shift; cmd_auto "$@" ;;
   autopull)     cmd_autopull ;;
-  *) sed -n '2,16p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//' ;;
+  *) sed -n '2,22p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//' ;;
 esac
