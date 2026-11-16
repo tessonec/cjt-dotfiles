@@ -36,7 +36,7 @@ die()  { printf '\033[38;5;167m✗\033[0m %s\n' "$*" >&2; exit 1; }
 
 cz() {
   command -v chezmoi >/dev/null 2>&1 || die "chezmoi not found — run: cjt-casamia init"
-  chezmoi "$@"
+  chezmoi --no-pager "$@"
 }
 
 install_chezmoi() {
