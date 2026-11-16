@@ -26,6 +26,8 @@ DISABLE_AUTO_UPDATE=true            # chezmoi refreshes oh-my-zsh weekly
 plugins=(git zsh-autosuggestions zsh-syntax-highlighting)
 source "$ZSH/oh-my-zsh.sh"
 
+export MC_SKIN=cjt-casamia            # ~/.local/share/mc/skins/cjt-casamia.ini
+
 HISTFILE=~/.zsh_history HISTSIZE=50000 SAVEHIST=50000
 setopt share_history hist_ignore_dups hist_ignore_space
 {{- if stat "/opt/bin/opkg" }}
