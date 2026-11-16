@@ -1,0 +1,146 @@
+#!/bin/sh
+# cjt-casamia — the same shell setup on every machine (chezmoi + git).
+#
+# New machine (macOS, Linux, Asustor/Synology with Entware):
+#   curl -fsSL https://raw.githubusercontent.com/tessonec/cjt-dotfiles/main/dot_local/bin/executable_cjt-casamia | sh -s init
+#
+# Commands:
+#   init              install chezmoi and apply the dotfiles for the current user
+#                     (sudo cjt-casamia init  does the same for root)
+#   pull              fetch and apply the latest version
+#   push [message]    collect local edits, commit, push
+#   sync [message]    push + pull in one go
+#   add FILE...       start managing more files (e.g. ~/.tmux.conf ~/.vimrc ~/.config/mc/ini)
+#   edit FILE         edit a managed file (templates too) and apply
+#   status            what differs locally / what is unpushed
+#   auto [on|off]     background pull at shell start, at most every 12 h (default: on)
+set -e
+
+# Under sudo, HOME can still point at the calling user's home: always use root's own
+if [ "$(id -u)" = 0 ] && [ -n "$SUDO_USER" ]; then
+  HOME=$( (getent passwd root 2>/dev/null || grep '^root:' /etc/passwd) | cut -d: -f6 )
+  HOME=${HOME:-/root}; export HOME
+fi
+[ -d /opt/bin ] && case ":$PATH:" in *:/opt/bin:*) ;; *) PATH=/opt/bin:/opt/sbin:$PATH ;; esac
+PATH=$HOME/.local/bin:$PATH; export PATH
+
+REPO_SSH=${CASAMIA_REPO_SSH:-git@github.com:tessonec/cjt-dotfiles.git}
+REPO_HTTPS=${CASAMIA_REPO_HTTPS:-https://github.com/tessonec/cjt-dotfiles.git}
+CACHE=${XDG_CACHE_HOME:-$HOME/.cache}
+STAMP=$CACHE/cjt-casamia.last
+OFF=$CACHE/cjt-casamia.off
+
+say()  { printf '\033[38;5;108m▸\033[0m %s\n' "$*"; }
+warn() { printf '\033[38;5;179m!\033[0m %s\n' "$*" >&2; }
+die()  { printf '\033[38;5;167m✗\033[0m %s\n' "$*" >&2; exit 1; }
+
+cz() {
+  command -v chezmoi >/dev/null 2>&1 || die "chezmoi not found — run: cjt-casamia init"
+  chezmoi "$@"
+}
+
+install_chezmoi() {
+  command -v chezmoi >/dev/null 2>&1 && return 0
+  if [ "$(uname)" = Darwin ] && command -v brew >/dev/null 2>&1 && [ "$(id -u)" != 0 ]; then
+    say "Installing chezmoi (Homebrew)"; brew install chezmoi
+  else
+    command -v curl >/dev/null 2>&1 || die "curl is needed"
+    say "Installing chezmoi into $HOME/.local/bin"
+    sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+  fi
+}
+
+pick_repo() {
+  # SSH if this account can reach GitHub with a key (can push), else read-only HTTPS
+  if [ "$(id -u)" != 0 ] && command -v git >/dev/null 2>&1 &&
+     GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=5" git ls-remote "$REPO_SSH" >/dev/null 2>&1; then
+    echo "$REPO_SSH"
+  else
+    echo "$REPO_HTTPS"
+  fi
+}
+
+cmd_init() {
+  if [ -d /volume1 ] && [ ! -x /opt/bin/opkg ]; then
+    die "This NAS has no Entware yet. Install Entware first, then re-run."
+  fi
+  cd "$HOME"
+  install_chezmoi
+  if [ -d "$(cz source-path 2>/dev/null)/.git" ]; then
+    say "Already initialised — updating"; cz update --force
+  else
+    repo=$(pick_repo)
+    say "Applying dotfiles from $repo as $(id -un)@$(hostname)"
+    cz init --apply "$repo"
+  fi
+  mkdir -p "$CACHE"; touch "$STAMP"
+  if [ "$(id -u)" = 0 ]; then say "Done for root. Use: sudo -i"
+  else say "Done. Start a new shell; for root: sudo cjt-casamia init"; fi
+}
+
+cmd_pull() {
+  if [ -n "$(cz status 2>/dev/null)" ]; then
+    warn "Local edits not yet pushed:"; cz status
+    warn "Run 'cjt-casamia push' first (or 'cjt-casamia sync')."; exit 1
+  fi
+  say "Pulling"; cz update --force
+  mkdir -p "$CACHE"; touch "$STAMP"
+}
+
+cmd_push() {
+  msg=${1:-"$(id -un)@$(hostname): $(date '+%Y-%m-%d %H:%M')"}
+  cz re-add
+  left=$(cz status 2>/dev/null || true)
+  if [ -n "$left" ]; then
+    warn "Still different (templates — change them with 'cjt-casamia edit FILE'):"
+    printf '%s\n' "$left" >&2
+  fi
+  cz git -- add -A
+  if cz git -- diff --cached --quiet; then say "Nothing to commit"
+  else cz git -- commit -q -m "$msg"; say "Committed: $msg"; fi
+  cz git -- pull --rebase -q || die "Merge conflict — resolve in: $(cz source-path)"
+  cz git -- push -q || die "Push failed (this clone is read-only HTTPS; push from an account with an SSH key)"
+  say "Pushed"
+}
+
+cmd_sync()   { cmd_push "$@"; cz apply --force; mkdir -p "$CACHE"; touch "$STAMP"; say "In sync"; }
+cmd_add()    { [ $# -gt 0 ] || die "usage: cjt-casamia add FILE..."; cz add "$@"; say "Now managed: $* — run 'cjt-casamia push'"; }
+cmd_edit()   { [ $# -gt 0 ] || die "usage: cjt-casamia edit FILE"; cz edit --apply "$@"; }
+cmd_status() {
+  echo "Local changes not in the repo:"; cz status || true
+  echo "Repo:"; cz git -- status -sb
+}
+
+cmd_auto() {
+  mkdir -p "$CACHE"
+  case $1 in
+    on)  rm -f "$OFF"; say "Auto-pull: on" ;;
+    off) touch "$OFF"; say "Auto-pull: off" ;;
+    *)   [ -e "$OFF" ] && echo off || echo on ;;
+  esac
+}
+
+# Run in the background from .zshrc: at most every 12 h, and only if nothing is edited locally
+cmd_autopull() {
+  [ -e "$OFF" ] && exit 0
+  command -v chezmoi >/dev/null 2>&1 || exit 0
+  mkdir -p "$CACHE"
+  [ -n "$(find "$STAMP" -mmin -720 2>/dev/null)" ] && exit 0
+  touch "$STAMP"
+  [ -z "$(chezmoi status 2>/dev/null)" ] || exit 0
+  chezmoi git -- pull --ff-only -q >/dev/null 2>&1 || exit 0
+  CASAMIA_NONINTERACTIVE=1 chezmoi apply --force --no-tty >/dev/null 2>&1 || true
+}
+
+case ${1:-help} in
+  init|install) shift; cmd_init "$@" ;;
+  pull|update)  cmd_pull ;;
+  push)         shift; cmd_push "$@" ;;
+  sync)         shift; cmd_sync "$@" ;;
+  add)          shift; cmd_add "$@" ;;
+  edit)         shift; cmd_edit "$@" ;;
+  status|st)    cmd_status ;;
+  auto)         shift; cmd_auto "$@" ;;
+  autopull)     cmd_autopull ;;
+  *) sed -n '2,16p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//' ;;
+esac

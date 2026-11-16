@@ -1,0 +1,3 @@
+# ~/.profile — managed by chezmoi (NAS only): start zsh from Entware on login
+export PATH=/opt/bin:/opt/sbin:$PATH
+[ -x /opt/bin/zsh ] && [ -z "$ZSH_VERSION" ] && exec /opt/bin/zsh -l

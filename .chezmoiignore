@@ -1,0 +1,4 @@
+README.md
+{{- if not (stat "/opt/bin/opkg") }}
+.profile
+{{- end }}

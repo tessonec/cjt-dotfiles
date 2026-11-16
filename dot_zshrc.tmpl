@@ -1,0 +1,40 @@
+# ~/.zshrc — managed by chezmoi. Machine-specific things go in ~/.zshrc.local
+{{- if stat "/opt/bin/opkg" }}
+
+# NAS (Entware): tools in /opt, and ADM/DSM tend to downgrade TERM
+export PATH=/opt/bin:/opt/sbin:$PATH
+[[ $TERM == xterm ]] && export TERM=xterm-256color
+{{- end }}
+{{- if eq .chezmoi.os "darwin" }}
+
+[[ -x /opt/homebrew/bin/brew ]] && eval "$(/opt/homebrew/bin/brew shellenv)"
+{{- end }}
+
+# Powerlevel10k instant prompt (keep near the top)
+if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+fi
+
+export LANG=${LANG:-en_US.UTF-8}
+export ZSH="$HOME/.oh-my-zsh"
+ZSH_THEME="powerlevel10k/powerlevel10k"
+ZSH_DISABLE_COMPFIX=true
+DISABLE_AUTO_UPDATE=true            # chezmoi refreshes oh-my-zsh weekly
+plugins=(git zsh-autosuggestions zsh-syntax-highlighting)
+source "$ZSH/oh-my-zsh.sh"
+
+HISTFILE=~/.zsh_history HISTSIZE=50000 SAVEHIST=50000
+setopt share_history hist_ignore_dups hist_ignore_space
+{{- if stat "/opt/bin/opkg" }}
+
+(( EUID )) && alias opkg='sudo env PATH=/opt/bin:/opt/sbin:$PATH /opt/bin/opkg'
+{{- end }}
+
+# cjt-casamia: keep this setup in sync across machines
+path=(~/.local/bin $path)
+# 'sudo cjt-casamia ...' works although sudo's PATH lacks ~/.local/bin
+sudo() { if [[ $1 == cjt-casamia ]]; then shift; command sudo ~/.local/bin/cjt-casamia "$@"; else command sudo "$@"; fi }
+(( $+commands[cjt-casamia] )) && { cjt-casamia autopull &! } 2>/dev/null
+
+[[ -r ~/.p10k.zsh ]] && source ~/.p10k.zsh
+[[ -r ~/.zshrc.local ]] && source ~/.zshrc.local
