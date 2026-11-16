@@ -1,5 +1,5 @@
 # ~/.screenrc — managed by cjt-casamia (edit with: cjt-casamia edit ~/.screenrc)
-# Status bar in the same muted palette as the zsh prompt. No icons: screen miscounts their width and the line wraps.
+# Status bar in the same muted palette as the zsh prompt. No icons: non-ASCII characters make screen miscount the width and the line wraps.
 {{- $v := output "sh" "-c" "screen -v 2>&1 || true" }}
 
 startup_message off
@@ -19,7 +19,7 @@ backtick 2 60 60 cjt-statusinfo ip
 hardstatus alwayslastline
 {{- if regexMatch "[Vv]ersion [5-9]" $v }}
 # screen 5+: 256 colours as fg;bg
-hardstatus string '%{180;236} %H %{250;235} %-w%{152;23} %n %t %{250;235}%+w%=%{243;235}up %{109;235}%1` %{243;235}· ip %{140;235}%2` %{243;235}· %{245;235}%D %d %M %{250;235}%c '
+hardstatus string '%{180;236} %H %{250;235} %-w%{152;23} %n %t %{250;235}%+w%=%{243;235}up %{109;235}%1` %{243;235} ip %{140;235}%2` %{243;235} %{245;235}%D %d %M %{250;235}%c '
 caption string '%?%F%{152;23}%:%{245;236}%? %n %t %{-}'
 {{- else }}
 # screen 4.x: 8 colours, no icons (it miscounts their width and the line wraps)
