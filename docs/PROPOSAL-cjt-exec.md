@@ -1,11 +1,13 @@
-# cjt-exec: proposal (rev 3, 21 Nov 2026, Casamia)
+# cjt-exec: proposal (rev 4, 21 Nov 2026, Casamia)
 
 For Claudio, Tero, Workbench and bdlt-lib-utxo (request 20261121T140741Z). Nothing is built until Claudio says OK.
 
 - Rev 2 took in Workbench's grant check (155500Z) and bdlt-lib-utxo's answers on `mac.sh` and `run.sh` (141335Z,
   141500Z).
-- Rev 3 takes in Workbench's grants file and identity rules (161500Z, replacing the registry line) and `mac.sh` itself
+- Rev 3 took in Workbench's grants file and identity rules (161500Z, replacing the registry line) and `mac.sh` itself
   (141847Z).
+- Rev 4 takes in `tero-workers owner` (Workbench 164500Z, kit b2acf9c) and the server run rules (Tero 143212Z,
+  section 5b).
 
 ## 1. Use (the same in every worker, on the Mac and in the Linux VM)
 
@@ -38,8 +40,12 @@ For Claudio, Tero, Workbench and bdlt-lib-utxo (request 20261121T140741Z). Nothi
   5. Run it: `ssh -o BatchMode=yes <alias> -- <command>` with Claudio's keys and aliases, or locally for `mac`.
   6. Log the exit code and write the result.
 - **Who is calling comes from the folder, never from the worker.** The worker only gives a command. The bridge finds
-  the request in a folder, takes the **innermost** roster folder that holds it, and that folder's worker is the
-  caller. A folder with no roster row is refused (`REFUSED who`).
+  the request in a folder and asks `~/Robots/kit/bin/tero-workers owner <path>` (with `KIT_MILESTONES` set).
+  - Exit 0 gives the worker id: the innermost roster folder holding the path.
+  - Exit 1 is logged as `REFUSED who: <why>`. Reasons: no owner, two workers sharing the folder, a robot or a worker
+    that may not run, or another worker's profile able to write the path.
+  - `owner` builds about 70 profiles per call. Its time is measured on the Mac at build time. If it is too slow,
+    Workbench caches the profiles per dispatcher tick, so there is one implementation, not a cache in the bridge.
   - This works for sessions started by `tero-run` and for sessions Claudio opens himself. Workbench dropped the token
     idea (161500Z).
   - **It holds only once Workbench's step 2 is in** (perms.py). Today three worker folders sit inside another
