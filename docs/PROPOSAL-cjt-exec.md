@@ -1,4 +1,4 @@
-# cjt-exec: proposal (rev 4, 21 Nov 2026, Casamia)
+# cjt-exec: proposal (rev 5, 21 Nov 2026, Casamia)
 
 For Claudio, Tero, Workbench and bdlt-lib-utxo (request 20261121T140741Z). Nothing is built until Claudio says OK.
 
@@ -6,8 +6,10 @@ For Claudio, Tero, Workbench and bdlt-lib-utxo (request 20261121T140741Z). Nothi
   141500Z).
 - Rev 3 took in Workbench's grants file and identity rules (161500Z, replacing the registry line) and `mac.sh` itself
   (141847Z).
-- Rev 4 takes in `tero-workers owner` (Workbench 164500Z, kit b2acf9c) and the server run rules (Tero 143212Z,
+- Rev 4 took in `tero-workers owner` (Workbench 164500Z, kit b2acf9c) and the server run rules (Tero 143212Z,
   section 5b).
+- Rev 5 names the wrappers per host (`acc-diag.sh` for ether, 144100Z; `guard.sh` for abacus-2 and utxo1, 144425Z),
+  takes the time and concurrency limits from `remote.toml`, and notes the VPN (143916Z).
 
 ## 1. Use (the same in every worker, on the Mac and in the Linux VM)
 
@@ -130,12 +132,28 @@ to remember them.
 
 - **Wrapper per host:** the bridge's host list (Casamia's private repo, next to the SSH list) can name a wrapper that
   every `run` command on that host goes through.
-  - ether: `acc-diag.sh` (owned by bdlt-lib-account): an 8 GB memory cap with no swap, killed first on out-of-memory,
-    low CPU and I/O priority, a stop when available memory falls below 12 GB, start and stop logged.
-  - abacus-2: a watchdog in the spirit of `run_a1.sh`: a stop at RSS > 250 GB, available memory < 100 GB or free disk
-    < 300 GB.
-  - Each wrapper is written and kept by the host's owner worker; the bridge only calls it. With no wrapper named, the
-    command runs as it is.
+  - **ether:** `acc-diag.sh <cmd…>`, called with **no flags** (an 8 GB cap and a 12 GB guard; never a lower `-m`).
+    Owner bdlt-lib-account; agreed in 144100Z. It sits at the path bdlt-lib-account gave, and logs to its own
+    `acc-runs.log`.
+  - **abacus-2:** `guard.sh -c 64 -r 250 -a 100 -d 300 -p /local/scratch/bdlt-blocksci -- <cmd…>`. Owner bdlt-lib-utxo
+    (144425Z). It is a draft; it goes to `deploy/guard.sh`.
+  - **utxo1:** `guard.sh -c 8 -r 8 -a 6 -d 200 -p /home -- <cmd…>`, from the same owner.
+  - **The wrapper's exit codes are passed on:**
+    - 137 is logged as `STOPPED guard` (killed by a guard);
+    - 75 is logged as `REFUSED host` (`guard.sh` refuses to start when disk is low);
+    - any other code is the command's own.
+  - Each wrapper is written and kept by the host's owner worker; the bridge only calls it, and changes go through the
+    owner.
+  - **A host with a grant but no wrapper named runs nothing in `run` mode** until its owner names one. The safe side,
+    since ether, abacus-2 and utxo1 all have rules.
+  - `bdlt-call` runs under the same wrapper, so each host's rules exist once (bdlt-lib-core takes that into
+    `bdlt.core.remote`).
+  - The per-host limits table (memory, time, concurrency, quotas) is bdlt-lib-core's `remote.toml`.
+    - **Time:** the bridge's timeout per host defaults to that table's `time_cap` (ether 1 h, abacus-2 2 h, utxo1
+      30 min).
+    - **Concurrency:** per host, from the same table (utxo1 1; ether 2). The bridge queues the rest.
+- **Ether is a shared machine:** any `run` there through the bridge needs Claudio's own OK (bdlt-lib-account,
+  144100Z), apart from the grant.
 - **Long jobs** (`-d`) run in a tmux session named `<worker>-<id>`. A START and END line goes to the job's log, as in
   `run_a1.sh`. Per-index memory limits such as abacus-2's 50 GB stay in the calculation service's code.
 - **Code out:** `cjt-exec <host> 'tar -x -C <dir>' < code.tar`. stdin is allowed up to 20 MB, enough for code, never
@@ -162,7 +180,8 @@ determined or misled worker that wraps a deletion in `python -c` or a script. Th
    - the identity check: a request in a folder with no roster row, or in an outer worker's folder, must be refused;
    - stdin and stdout passing through unchanged.
 3. Live for `mac` in read mode first, **after** Workbench's step 2 (the `.cjt-exec/` deny in perms.py).
-4. Servers when Claudio is home with the VPN. utxo1 and ether1 accept only Claudio's key, so they are reached through
+4. Servers: the Mac is on the UZH VPN since 21 Nov (Tero 143916Z), so only Claudio's OK and the steps above are
+   missing. utxo1 and ether1 accept only Claudio's key, so they are reached through
    the Mac's aliases. First user: bdlt-lib-utxo on utxo1, replacing `mac.sh`; then abacus-2, replacing `run.sh`.
    - The other users are `bdlt-lib-analytics:utxo` and `bdlt-tools-analysis-studio`. Each needs its own grant from
      Tero. bdlt-lib-utxo first needs its registry entry.
@@ -179,6 +198,8 @@ determined or misled worker that wraps a deletion in `python -c` or a script. Th
     nothing needs it on the worker side.
   - Cloud chats: they would need a network door into the Mac. I recommend not opening one; they keep asking a Mac
     worker, as today.
+  - Ether (shared): may workers with a grant run commands there through the bridge, always under `acc-diag.sh`?
+    This is the same question bdlt-lib-account asked for the calculation service (141000Z).
 - **SSH keys:** if the keys need a passphrase, the bridge needs them loaded in the agent (macOS Keychain); otherwise
   every request fails at once with "key not loaded". UZH hosts without the VPN fail at once with "unreachable (VPN?)".
 - **`mac.sh`:** received (141847Z). On the Mac it comes down to `ssh utxo1.bdlt "<cmd>"` plus two log lines, which
