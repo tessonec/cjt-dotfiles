@@ -48,6 +48,16 @@ wake: on message
   - **stdin:** in a sibling `<id>.in`.
   - **utxo1:** today's alias is `utxo1.bdlt`; the SSH list will add short names.
   - **`mac.sh`:** received. The old log is copied in by the installer.
+- 21 Nov: proposal rev 4.
+  - **Identity:** the bridge calls `~/Robots/kit/bin/tero-workers owner <path>` (Workbench, kit b2acf9c). It is
+    innermost-roster and refuses when another worker's profile can write the path. It takes about 70 profile builds
+    per call, to be timed on the Mac.
+  - **Grant modes:** come from the grants file (`read` when missing), with no registry line.
+  - **Server rules (Tero 143212Z), new section 5b:**
+    - a wrapper per host, owned by the host's owner (ether `acc-diag.sh`, an abacus-2 watchdog);
+    - tmux `<worker>-<id>` with START/END lines;
+    - stdin up to 20 MB (code out by tar);
+    - `-o` for results up to 50 MB.
 - 21 Nov, 15:22-15:23 CET: **early push, against the agreed order.**
   - What happened: while I was editing the proposal, a new Mac shell found the private folder with uncommitted edits.
     The automatic run committed and pushed `cjt-dotfiles` (fc5507c, 3b6931f), applied the new script, and with it
@@ -80,8 +90,9 @@ wake: on message
   CLAUDE.md (lines 4 and 19; nothing else in either repo names the folder). Until then nothing changes.
 
 - Claudio: OK on the `cjt-exec` proposal and its questions (feedback-needed 20261121T143001Z and 160001Z).
-- Workbench: `tero-workers owner <path>` (asked), and word that the `.cjt-exec/` deny of step 2 is in (needed
-  before go-live).
+- Workbench: word that the `.cjt-exec/` deny of step 2 is in (needed before go-live).
+- bdlt-lib-account: agree that `acc-diag.sh` is the ether wrapper the bridge calls. bdlt-lib-utxo: who writes the
+  abacus-2 watchdog wrapper.
 - Tero: agree to the grants file place; register bdlt-lib-utxo (no registry entry yet, so `may-exec` refuses it).
 
 ## Open questions

@@ -12,7 +12,8 @@ For Claudio, Tero, Workbench and bdlt-lib-utxo (request 20261121T140741Z). Nothi
 ## 1. Use (the same in every worker, on the Mac and in the Linux VM)
 
     cjt-exec <host> '<command>'            run, wait, print output, exit with the command's exit code
-    cjt-exec <host> '<command>' < in.json  stdin passed through unchanged (up to 1 MB)
+    cjt-exec <host> '<command>' < in.json  stdin passed through unchanged (up to 20 MB)
+    cjt-exec -o res.json <host> '<cmd>'    stdout to a file in .cjt-exec/in/ (up to 50 MB)
     cjt-exec -t 30m <host> '<command>'     timeout (default 10 min, at most 2 h)
     cjt-exec -d <host> '<command>'         long job: runs in a named tmux session on the host, returns a job id
     cjt-exec job <id>                      state, exit code and the last 50 lines of a long job
@@ -53,9 +54,8 @@ For Claudio, Tero, Workbench and bdlt-lib-utxo (request 20261121T140741Z). Nothi
     `bdlt-chain-blockscape-lab`, and the Condor robots in `cjt-condor-dev`. The outer worker could write the inner
     one's requests. The fix: every profile denies writing `<f>/.cjt-exec/**` for every other worker's folder `<f>`
     inside its own paths, in the Claude Code rules and in the sandbox.
-  - **The bridge does not go live before Workbench says that deny is in.**
-  - Asked of Workbench: `tero-workers owner <path>`, so that the roster lookup has one implementation (the kit's),
-    not a second one in the bridge.
+  - **The bridge does not go live before Workbench says that deny is in.** Until then `owner` refuses the two inner
+    workers, which is the safe side. `cjt-condor-dev` stays refused while it sits inside `cjt-condor`'s folder.
 - **Why files and not a network port:** it works from inside the Mac sandbox and from the VM (through the folder the
   VM mounts). It is the same pattern as Milestones. Keys stay in Claudio's `~/.ssh` and agent on the Mac; workers get
   the bridge, never a key or a key path.
@@ -123,6 +123,27 @@ that exact command once and logs `APPROVED claudio`.
   - Jobs sent to the background with `nohup`, `setsid` or a trailing `&`: long jobs go through `-d`, in a named tmux
     session.
 
+## 5b. Server rules (what the analytics workers ran with, Tero 143212Z)
+
+`cjt-exec` is the transport. The run rules belong to each host's owner, but the bridge applies them, so no worker has
+to remember them.
+
+- **Wrapper per host:** the bridge's host list (Casamia's private repo, next to the SSH list) can name a wrapper that
+  every `run` command on that host goes through.
+  - ether: `acc-diag.sh` (owned by bdlt-lib-account): an 8 GB memory cap with no swap, killed first on out-of-memory,
+    low CPU and I/O priority, a stop when available memory falls below 12 GB, start and stop logged.
+  - abacus-2: a watchdog in the spirit of `run_a1.sh`: a stop at RSS > 250 GB, available memory < 100 GB or free disk
+    < 300 GB.
+  - Each wrapper is written and kept by the host's owner worker; the bridge only calls it. With no wrapper named, the
+    command runs as it is.
+- **Long jobs** (`-d`) run in a tmux session named `<worker>-<id>`. A START and END line goes to the job's log, as in
+  `run_a1.sh`. Per-index memory limits such as abacus-2's 50 GB stay in the calculation service's code.
+- **Code out:** `cjt-exec <host> 'tar -x -C <dir>' < code.tar`. stdin is allowed up to 20 MB, enough for code, never
+  data.
+- **Results back:** stdout up to 1 MB by default. With `-o <file>`, stdout is written to a file in the worker's own
+  `.cjt-exec/in/`, up to 50 MB. Which files may come back (for example no `.npz`) is the calculation service's rule.
+- The ether helpers that were never saved are replaced by the calculation service, not by `cjt-exec`.
+
 **What this cannot do:** checking the command text catches mistakes and the obvious cases. It cannot stop a
 determined or misled worker that wraps a deletion in `python -c` or a script. The real limits are:
 - who is calling, taken from the folder;
@@ -133,7 +154,7 @@ determined or misled worker that wraps a deletion in `python -c` or a script. Th
 
 ## 6. Steps
 
-1. Claudio's OK on this page. Tero agrees on the grants file. Workbench adds `tero-workers owner <path>`.
+1. Claudio's OK on this page. Tero agrees on the grants file. (Workbench's `owner` and `may-exec` are built.)
 2. Build the script, the bridge and its launchd agent (installed by `cjt-casamia` on the Mac only). Test them with
    fake workers and a test grants file (`KIT_EXEC_GRANTS`):
    - `mac` in read mode;
