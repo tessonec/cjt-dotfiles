@@ -12,6 +12,8 @@ For Claudio, Tero, Workbench and bdlt-lib-utxo (request 20261121T140741Z). Nothi
   took the time and concurrency limits from `remote.toml`, and noted the VPN (143916Z).
 - Rev 6 reads the wrappers from `remote.toml` too (one source with `bdlt-call`, bdlt-lib-core 145400Z), and switches a
   host on only after its wrapper has run there for real.
+  - Rev 6 also takes in bdlt-lib-core 151500Z: the path and format of `remote.toml`, `enabled = false` for ether, and
+    the reader.
 
 ## 1. Use (the same in every worker, on the Mac and in the Linux VM)
 
@@ -136,9 +138,17 @@ to remember them.
   - The wrapper command and its values are read from bdlt-lib-core's `remote.toml`, the same table that
     `bdlt.core.remote` reads for `bdlt-call` (bdlt-lib-core 145400Z). So each host's rules exist once, and Casamia
     keeps no copy.
-  - The bridge runs as Claudio, so it can read the file in `bdlt-blocksci`. Today it is the proposal
-    `workers/bdlt-lib-core/proposals/remote/2026-11-21-limits.md`; the place of `remote.toml` is asked of
-    bdlt-lib-core.
+  - The bridge runs as Claudio, so it can read the file in `bdlt-blocksci`.
+  - **Path:** `bdlt-blocksci/workers/bdlt-lib-core/proposals/remote/remote.toml` until bdlt-lib-core says it has
+    moved to `bdlt-blocksci/deploy/remote.toml` (bdlt-lib-core 151500Z).
+  - **Format:** `bdlt-remote/1`, one `[hosts.<name>]` section per host, with `ssh` (the alias), `wrapper` (the
+    command as a list), and the tables `limits`, `watchdog` and `transfer`.
+    - The bridge ignores fields it does not know, and refuses any other format version.
+    - It takes the SSH alias from `ssh`.
+    - A host with `enabled = false` (ether, until Claudio decides) gets no `run`.
+  - **Reader:** Homebrew Python 3.15's standard `tomllib`, also used for the grants JSON. Nothing to install.
+    - If the file cannot be read or parsed, the bridge refuses `run` on every server, and logs that once per change
+      of the file.
   - Today's values:
   - **ether:** `acc-diag.sh <cmd…>`, called with **no flags** (an 8 GB cap and a 12 GB guard; never a lower `-m`).
     Owner bdlt-lib-account; agreed in 144100Z. It sits at the path bdlt-lib-account gave, and logs to its own
