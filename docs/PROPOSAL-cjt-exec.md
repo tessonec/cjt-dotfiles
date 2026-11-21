@@ -18,14 +18,17 @@ For Claudio, Tero, Workbench and bdlt-lib-utxo (request 20261121T140741Z). Nothi
 
 - `<host>` is an alias from Claudio's SSH configuration, in lower case: `mac` (the Mac itself), `utxo1`,
   `abacus-2`, `ether1`, `asustor6`, `ds620` ... Never an address, user or key.
+  - Today's alias for utxo1 is `utxo1.bdlt`. The SSH server list (Casamia's Next 3) gives each host its short name
+    as well (`Host utxo1 utxo1.bdlt`), so both work and grants use the short name.
 - stdout and stderr come back unchanged, up to 1 MB each. More stays in the log folder, and the worker is told.
   This covers the calculation service's `bdlt-call` (a JSON request on stdin, a short summary on stdout).
 
 ## 2. How it works
 
 - **The worker side** (`cjt-exec`, a small sh script) holds no key and opens no connection. It writes a request
-  into its own folder, `<worker folder>/.cjt-exec/out/<id>.req` (host, command, working folder, timeout, stdin), and
-  waits for `<worker folder>/.cjt-exec/in/<id>.done`. `.cjt-exec/` is git-ignored.
+  into its own folder, `<worker folder>/.cjt-exec/out/<id>.req` (host, command, working folder, timeout). stdin
+  goes in a sibling `<id>.in`, which the bridge pipes in unchanged. The worker then waits for
+  `<worker folder>/.cjt-exec/in/<id>.done`. `.cjt-exec/` is git-ignored.
 - **The bridge** (`cjt-execd`, a launchd agent running as Claudio on the Mac, outside every sandbox) handles each
   request in this order:
   1. Find out who is calling (below).
@@ -35,13 +38,18 @@ For Claudio, Tero, Workbench and bdlt-lib-utxo (request 20261121T140741Z). Nothi
   5. Run it: `ssh -o BatchMode=yes <alias> -- <command>` with Claudio's keys and aliases, or locally for `mac`.
   6. Log the exit code and write the result.
 - **Who is calling comes from the folder, never from the worker.** The worker only gives a command. The bridge finds
-  the request in a folder and asks Workbench whose folder it is (`tero-workers owner <path>`, asked of Workbench
-  below). The answer is a worker id only if the path is inside exactly one worker's **own** folder, and no other
-  worker's profile can write there. Otherwise the request is refused and logged as `REFUSED who`. A session cannot
-  forge this: it can only write where its sandbox lets it, and Workbench knows every profile.
-  - This works for sessions started by `tero-run` and for sessions Claudio opens himself.
-  - A per-session token from `tero-run` (Workbench's idea) can be added later as a second check. It is not needed for
-    the first version.
+  the request in a folder, takes the **innermost** roster folder that holds it, and that folder's worker is the
+  caller. A folder with no roster row is refused (`REFUSED who`).
+  - This works for sessions started by `tero-run` and for sessions Claudio opens himself. Workbench dropped the token
+    idea (161500Z).
+  - **It holds only once Workbench's step 2 is in** (perms.py). Today three worker folders sit inside another
+    worker's: `bdlt-doc-widgets` in `bdlt-doc-beamer`, `bdlt-chain-blockscape-phones` in
+    `bdlt-chain-blockscape-lab`, and the Condor robots in `cjt-condor-dev`. The outer worker could write the inner
+    one's requests. The fix: every profile denies writing `<f>/.cjt-exec/**` for every other worker's folder `<f>`
+    inside its own paths, in the Claude Code rules and in the sandbox.
+  - **The bridge does not go live before Workbench says that deny is in.**
+  - Asked of Workbench: `tero-workers owner <path>`, so that the roster lookup has one implementation (the kit's),
+    not a second one in the bridge.
 - **Why files and not a network port:** it works from inside the Mac sandbox and from the VM (through the folder the
   VM mounts). It is the same pattern as Milestones. Keys stay in Claudio's `~/.ssh` and agent on the Mac; workers get
   the bridge, never a key or a key path.
@@ -49,19 +57,29 @@ For Claudio, Tero, Workbench and bdlt-lib-utxo (request 20261121T140741Z). Nothi
   (see section 7).
 - **Code:** in the public `cjt-casamia` repo (generic, no hosts or names). The log stays on the Mac only.
 
-## 3. Grants: the `hosts:` line of the worker's own registry entry (built by Workbench, kit 270a4e8)
+## 3. Grants: `~/Robots/tero/grants/cjt-exec.json` (Workbench, kit 08f2a87)
 
-    hosts: [mac, utxo1:run, abacus-2:run]
+    {"version": 1, "grants": [
+      {"worker": "bdlt-lib-utxo", "hosts": ["utxo1", "abacus-2"], "mode": "run",  "ok_by": "Claudio",
+       "date": "2026-11-2x", "until": null},
+      {"worker": "bdlt-lib-utxo", "hosts": ["mac"],               "mode": "read", "ok_by": "Claudio",
+       "date": "2026-11-2x", "until": null}]}
 
-- **Tero writes it on Claudio's OK.** Workers cannot write `registry/`. No line means no access. Only the worker's
-  own entry counts.
-- **Proposed mode suffix** (for Workbench to add): a bare name means `read`, and `:run` means `run`, so the safe
-  mode is the default. `tero-workers may-exec <worker> <host>` would print the mode on stdout.
+- **The file is in Tero's own folder,** where no worker can write. Tero writes it on Claudio's OK. No grant means no
+  access. `until` is inclusive, or null. `run` includes `read`.
+- **The check, called before every command:**
+  `~/Robots/kit/bin/tero-workers may-exec <worker> <host> <read|run>`. Exit 0 means allowed; exit 1 means refused,
+  with the reason on stderr. It refuses when there is no grant or it has ended, when the worker is freed, not started
+  or has no folder, and when the file can't be read.
+- **How the mode is chosen:** the bridge first asks for `run`; if that is refused, it asks for `read`. That gives
+  the mode, and in `read` mode the read-only rules below apply.
+  `tero-workers hosts <worker> --json` serves `cjt-exec hosts`.
   - `read`: only read-only commands (`ls cat head tail wc grep find df du ps uptime free nvidia-smi
     git status/log/diff/show`, `tmux ls`), run without a shell (no `; | & > < $( )` and no backticks).
   - `run`: any command except the refusals.
   - **Recommended:** `mac` stays `read`. `run` on the Mac is a complete way out of the worker's sandbox.
-- The bridge calls the check before every command and logs its answer (granted, or refused with the reason).
+- The answer of the check is logged with each command (granted, or refused with the reason).
+- bdlt-lib-utxo has no registry entry yet, so the check refuses it until Tero registers it.
 
 ## 4. Log (one place)
 
@@ -75,7 +93,8 @@ For Claudio, Tero, Workbench and bdlt-lib-utxo (request 20261121T140741Z). Nothi
 - Workers cannot write there. Tero and the dashboard can read it.
 - The tool never deletes anything. Claudio sets the rule for old output.
 - The old `logs-local/utxo1-migration.log` (kept since 7 Nov) is copied in unchanged as
-  `imported/utxo1-migration.log`. The original stays where it is.
+  `imported/utxo1-migration.log` when the bridge is installed. The installer runs as Claudio, so it can read the
+  log. The original stays where it is.
 
 ## 5. Refused, or sent to Claudio through Tero
 
@@ -108,15 +127,18 @@ determined or misled worker that wraps a deletion in `python -c` or a script. Th
 
 ## 6. Steps
 
-1. Claudio's OK on this page. Workbench adds `tero-workers owner <path>` and the `:run` suffix.
+1. Claudio's OK on this page. Tero agrees on the grants file. Workbench adds `tero-workers owner <path>`.
 2. Build the script, the bridge and its launchd agent (installed by `cjt-casamia` on the Mac only). Test them with
-   fake workers: `mac` in read mode, the refusal list, the identity check (a request in a folder that is not the
-   worker's own must be refused), stdin and stdout passing through unchanged.
-3. Live for `mac` in read mode first.
+   fake workers and a test grants file (`KIT_EXEC_GRANTS`):
+   - `mac` in read mode;
+   - the refusal list;
+   - the identity check: a request in a folder with no roster row, or in an outer worker's folder, must be refused;
+   - stdin and stdout passing through unchanged.
+3. Live for `mac` in read mode first, **after** Workbench's step 2 (the `.cjt-exec/` deny in perms.py).
 4. Servers when Claudio is home with the VPN. utxo1 and ether1 accept only Claudio's key, so they are reached through
    the Mac's aliases. First user: bdlt-lib-utxo on utxo1, replacing `mac.sh`; then abacus-2, replacing `run.sh`.
-   - The other users are `bdlt-lib-analytics:utxo` and `bdlt-tools-analysis-studio`. Each needs its own `hosts:`
-     line from Tero.
+   - The other users are `bdlt-lib-analytics:utxo` and `bdlt-tools-analysis-studio`. Each needs its own grant from
+     Tero. bdlt-lib-utxo first needs its registry entry.
    - The old scripts keep working until then. They then go to `logs-local/_handed-over/`, and nothing is deleted.
 5. Skill `cjt-exec` (half a page) through `skills-inbox/` to cjt-skills.
 
@@ -132,5 +154,6 @@ determined or misled worker that wraps a deletion in `python -c` or a script. Th
     worker, as today.
 - **SSH keys:** if the keys need a passphrase, the bridge needs them loaded in the agent (macOS Keychain); otherwise
   every request fails at once with "key not loaded". UZH hosts without the VPN fail at once with "unreachable (VPN?)".
-- **bdlt-lib-utxo:** please put copies of `mac.sh`, `run.sh` and `utxo1-migration.log` in your own `projects/<id8>/`
-  in CJT Milestones. My sandbox cannot read `~/Projects/bdlt-blocksci/`.
+- **`mac.sh`:** received (141847Z). On the Mac it comes down to `ssh utxo1.bdlt "<cmd>"` plus two log lines, which
+  is exactly what the bridge does.
+- **`run.sh` and the old log:** no copy needed. The bridge replaces `run.sh`, and the installer copies the log.
