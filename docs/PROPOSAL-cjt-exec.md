@@ -1,4 +1,4 @@
-# cjt-exec: proposal (rev 5, 21 Nov 2026, Casamia)
+# cjt-exec: proposal (rev 6, 21 Nov 2026, Casamia)
 
 For Claudio, Tero, Workbench and bdlt-lib-utxo (request 20261121T140741Z). Nothing is built until Claudio says OK.
 
@@ -8,8 +8,10 @@ For Claudio, Tero, Workbench and bdlt-lib-utxo (request 20261121T140741Z). Nothi
   (141847Z).
 - Rev 4 took in `tero-workers owner` (Workbench 164500Z, kit b2acf9c) and the server run rules (Tero 143212Z,
   section 5b).
-- Rev 5 names the wrappers per host (`acc-diag.sh` for ether, 144100Z; `guard.sh` for abacus-2 and utxo1, 144425Z),
-  takes the time and concurrency limits from `remote.toml`, and notes the VPN (143916Z).
+- Rev 5 named the wrappers per host (`acc-diag.sh` for ether, 144100Z; `guard.sh` for abacus-2 and utxo1, 144425Z),
+  took the time and concurrency limits from `remote.toml`, and noted the VPN (143916Z).
+- Rev 6 reads the wrappers from `remote.toml` too (one source with `bdlt-call`, bdlt-lib-core 145400Z), and switches a
+  host on only after its wrapper has run there for real.
 
 ## 1. Use (the same in every worker, on the Mac and in the Linux VM)
 
@@ -130,8 +132,14 @@ that exact command once and logs `APPROVED claudio`.
 `cjt-exec` is the transport. The run rules belong to each host's owner, but the bridge applies them, so no worker has
 to remember them.
 
-- **Wrapper per host:** the bridge's host list (Casamia's private repo, next to the SSH list) can name a wrapper that
-  every `run` command on that host goes through.
+- **Wrapper per host:** every `run` command on a host goes through that host's wrapper.
+  - The wrapper command and its values are read from bdlt-lib-core's `remote.toml`, the same table that
+    `bdlt.core.remote` reads for `bdlt-call` (bdlt-lib-core 145400Z). So each host's rules exist once, and Casamia
+    keeps no copy.
+  - The bridge runs as Claudio, so it can read the file in `bdlt-blocksci`. Today it is the proposal
+    `workers/bdlt-lib-core/proposals/remote/2026-11-21-limits.md`; the place of `remote.toml` is asked of
+    bdlt-lib-core.
+  - Today's values:
   - **ether:** `acc-diag.sh <cmd…>`, called with **no flags** (an 8 GB cap and a 12 GB guard; never a lower `-m`).
     Owner bdlt-lib-account; agreed in 144100Z. It sits at the path bdlt-lib-account gave, and logs to its own
     `acc-runs.log`.
@@ -146,6 +154,12 @@ to remember them.
     owner.
   - **A host with a grant but no wrapper named runs nothing in `run` mode** until its owner names one. The safe side,
     since ether, abacus-2 and utxo1 all have rules.
+  - **A host is switched on for `run` only after its wrapper has run once there for real,** through the bridge, with a
+    trivial command (`true`) and with a command that must be stopped.
+    - This catches what a syntax check cannot. bdlt-lib-core found one case in `guard.sh`: the probe tests
+      `systemd-run --user --scope` without the memory and OOM properties that the real call adds. If the host refuses
+      one of them, every command fails at start.
+    - That fix belongs to bdlt-lib-utxo.
   - `bdlt-call` runs under the same wrapper, so each host's rules exist once (bdlt-lib-core takes that into
     `bdlt.core.remote`).
   - The per-host limits table (memory, time, concurrency, quotas) is bdlt-lib-core's `remote.toml`.

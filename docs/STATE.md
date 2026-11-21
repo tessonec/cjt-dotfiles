@@ -67,6 +67,13 @@ wake: on message
   - **Limits:** timeout and concurrency per host from bdlt-lib-core's `remote.toml`.
   - **VPN:** up on the Mac (Tero 143916Z).
   - **Ether:** a `run` there needs Claudio's own OK (question 6, feedback-needed 164901Z).
+- 21 Nov: proposal rev 6, after bdlt-lib-core 145400Z.
+  - **Wrappers:** the bridge reads the wrapper command and values per host from `remote.toml`, the same table
+    `bdlt-call` reads. Casamia keeps no copy. Today that table is
+    `bdlt-blocksci/workers/bdlt-lib-core/proposals/remote/2026-11-21-limits.md`.
+  - **Switching a host on:** only after its wrapper has run there for real through the bridge (`true`, plus one
+    command that must be stopped).
+  - **`guard.sh` probe:** core found that its systemd probe lacks the real properties. bdlt-lib-utxo fixes it.
 - 21 Nov, 15:22-15:23 CET: **early push, against the agreed order.**
   - What happened: while I was editing the proposal, a new Mac shell found the private folder with uncommitted edits.
     The automatic run committed and pushed `cjt-dotfiles` (fc5507c, 3b6931f), applied the new script, and with it
