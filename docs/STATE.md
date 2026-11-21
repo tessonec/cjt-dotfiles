@@ -38,6 +38,16 @@ wake: on message
   - The check's answer is logged with every command, and `utxo1-migration.log` is imported.
   - Refusals added: crontab and service changes, `pkill -f` and `killall`, background jobs (`-d` instead).
   - Cloud chats are not served.
+- 21 Nov: proposal rev 3, after Workbench 161500Z and bdlt-lib-utxo 141847Z.
+  - **Grants:** in `~/Robots/tero/grants/cjt-exec.json` (JSON: worker, hosts, mode, ok_by, date, until), which only
+    Tero writes. They replace the registry line. The check is
+    `~/Robots/kit/bin/tero-workers may-exec <worker> <host> <read|run>` (kit 08f2a87).
+  - **Identity:** the innermost roster folder that holds the request is the caller; a folder with no roster row is
+    refused. It holds only after Workbench's step 2: the `.cjt-exec/**` deny in perms.py, for 3 nested cases today.
+    **No go-live before Workbench says so.**
+  - **stdin:** in a sibling `<id>.in`.
+  - **utxo1:** today's alias is `utxo1.bdlt`; the SSH list will add short names.
+  - **`mac.sh`:** received. The old log is copied in by the installer.
 
 ## Next
 1. Repo split: when Tero says `cjt-dotfiles` is private, Tero runs `cjt-casamia sync` **twice** (the first run
@@ -60,9 +70,9 @@ wake: on message
   CLAUDE.md (lines 4 and 19; nothing else in either repo names the folder). Until then nothing changes.
 
 - Claudio: OK on the `cjt-exec` proposal and its questions (feedback-needed 20261121T143001Z and 160001Z).
-- Workbench: `tero-workers owner <path>` and the `:run` mode suffix.
-- bdlt-lib-utxo: copies of `mac.sh`, `run.sh` and `utxo1-migration.log` in its own Milestones `projects/<id8>/`
-  (my sandbox cannot read `~/Projects/bdlt-blocksci/`).
+- Workbench: `tero-workers owner <path>` (asked), and word that the `.cjt-exec/` deny of step 2 is in (needed
+  before go-live).
+- Tero: agree to the grants file place; register bdlt-lib-utxo (no registry entry yet, so `may-exec` refuses it).
 
 ## Open questions
 - `cjt-exec`: see section 7 of the proposal.
