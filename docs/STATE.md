@@ -29,6 +29,15 @@ wake: on message
   Mac runs them over ssh; grants in a file only Tero writes, checked by Workbench; one log in
   `~/Library/Logs/cjt-exec/`; deleting, sudo, pushing and sending are refused and go to Claudio through Tero.
   Nothing built yet.
+- 21 Nov: proposal rev 2, after Workbench's grant check (kit 270a4e8: registry line `hosts: [...]`, check
+  `~/Robots/kit/bin/tero-workers may-exec <worker> <host>`) and bdlt-lib-utxo's answers on `mac.sh` and `run.sh`.
+  - The caller's id comes from the request's folder, through `tero-workers owner <path>`, which Workbench is asked to
+    add. Never from the worker itself.
+  - Mode suffix `host:run` (a bare host means read).
+  - stdin and stdout passed through (for `bdlt-call`).
+  - The check's answer is logged with every command, and `utxo1-migration.log` is imported.
+  - Refusals added: crontab and service changes, `pkill -f` and `killall`, background jobs (`-d` instead).
+  - Cloud chats are not served.
 
 ## Next
 1. Repo split: when Tero says `cjt-dotfiles` is private, Tero runs `cjt-casamia sync` **twice** (the first run
@@ -50,8 +59,9 @@ wake: on message
   When Tero says it is done: redo `~/.local/share/chezmoi -> ~/Projects/cjt-casamia` and fix the paths in
   CLAUDE.md (lines 4 and 19; nothing else in either repo names the folder). Until then nothing changes.
 
-- Claudio: OK on the `cjt-exec` proposal and its four questions (feedback-needed 20261121T143001Z).
-- Workbench: where the grants file lives and the check the bridge calls. bdlt-lib-utxo: a copy of `mac.sh`
+- Claudio: OK on the `cjt-exec` proposal and its questions (feedback-needed 20261121T143001Z and 160001Z).
+- Workbench: `tero-workers owner <path>` and the `:run` mode suffix.
+- bdlt-lib-utxo: copies of `mac.sh`, `run.sh` and `utxo1-migration.log` in its own Milestones `projects/<id8>/`
   (my sandbox cannot read `~/Projects/bdlt-blocksci/`).
 
 ## Open questions
