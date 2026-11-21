@@ -1,5 +1,8 @@
 # STATE (cjt-casamia) - 21 Nov 2026
 
+## Wake
+wake: on message
+
 ## Last done
 - 16-18 Nov: zsh/p10k prompt, screen bar, mc skin, tmux config, `cjt-casamia` script (init, pull, push,
   sync, add, edit, diff, apply, import, reset, status, auto); deployed on Mac, asustor6, ds620, ether1, abacus-1.
@@ -8,6 +11,9 @@
   first commit left to the Mac so it carries Claudio's git identity); script now reaches the private repo with
   the account's GitHub key or a read-only deploy key it creates (`init`), and migrates old https clones;
   bootstrap URL moved to the public repo; `.gitignore` keeps `casamia/` out of the private repo.
+- 21 Nov: registered by the coordinator as `cjt-casamia` (Casamia), family Infrastructure and knowledge;
+  folder to move to `~/Projects/cjt-casamia` when Tero says so (messages/20261121T080200Z_coordinator_to_cjt-casamia_answer.md).
+  Wake line set to `wake: on message` (Tero's request 20261121T085422Z); messages read and acked.
 
 ## Next
 1. Repo split (decided by Claudio, 18 Nov, by voice): Claudio creates the empty public repo `tessonec/cjt-casamia`,
@@ -18,7 +24,10 @@
 3. SSH server list in the private repo (`~/.ssh/config`: hosts, users, IPs, ports; keys untouched).
 
 ## Waiting on
-- Claudio: GitHub steps of the split. Coordinator: entry in WORKERS.md.
+- Claudio: GitHub steps of the split (feedback-needed message of 21 Nov).
+- Tero: WORKERS.md row, and the folder move to `~/Projects/cjt-casamia` (on its move list for Claudio's OK).
+  When Tero says it is done: redo `~/.local/share/chezmoi -> ~/Projects/cjt-casamia` and fix the paths in
+  CLAUDE.md (lines 4 and 19; nothing else in either repo names the folder). Until then nothing changes.
 
 ## Open questions
 - Encrypt `~/.ssh/config` on top of the private repo, or is private enough? (Claudio said encryption was
