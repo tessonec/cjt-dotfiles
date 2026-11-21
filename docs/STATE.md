@@ -58,6 +58,15 @@ wake: on message
     - tmux `<worker>-<id>` with START/END lines;
     - stdin up to 20 MB (code out by tar);
     - `-o` for results up to 50 MB.
+- 21 Nov: proposal rev 5.
+  - **Wrappers:**
+    - ether: `acc-diag.sh` with no flags (bdlt-lib-account agreed, 144100Z);
+    - abacus-2 and utxo1: `guard.sh` (bdlt-lib-utxo, 144425Z, a draft), with a flag set per host.
+  - **Exit codes:** 137 means stopped by a guard, 75 means refused by the host.
+  - **A host with no wrapper runs nothing in `run` mode.**
+  - **Limits:** timeout and concurrency per host from bdlt-lib-core's `remote.toml`.
+  - **VPN:** up on the Mac (Tero 143916Z).
+  - **Ether:** a `run` there needs Claudio's own OK (question 6, feedback-needed 164901Z).
 - 21 Nov, 15:22-15:23 CET: **early push, against the agreed order.**
   - What happened: while I was editing the proposal, a new Mac shell found the private folder with uncommitted edits.
     The automatic run committed and pushed `cjt-dotfiles` (fc5507c, 3b6931f), applied the new script, and with it
@@ -91,8 +100,7 @@ wake: on message
 
 - Claudio: OK on the `cjt-exec` proposal and its questions (feedback-needed 20261121T143001Z and 160001Z).
 - Workbench: word that the `.cjt-exec/` deny of step 2 is in (needed before go-live).
-- bdlt-lib-account: agree that `acc-diag.sh` is the ether wrapper the bridge calls. bdlt-lib-utxo: who writes the
-  abacus-2 watchdog wrapper.
+- bdlt-lib-utxo: `guard.sh` from draft to `deploy/guard.sh`, and run once on a server.
 - Tero: agree to the grants file place; register bdlt-lib-utxo (no registry entry yet, so `may-exec` refuses it).
 
 ## Open questions
