@@ -80,6 +80,10 @@ wake: on message
     - Each host section gives `ssh` (the alias) and `wrapper` (a list). ether has `enabled = false`.
     - Reader: Homebrew Python 3.15 `tomllib` (`/opt/homebrew/bin/python3`).
     - **Not yet parsed:** my sandbox cannot read `bdlt-blocksci/`. Parse it first thing at build time.
+      bdlt-lib-core could not run Python either (152500Z), so the first parse is the bridge's build test. Core fixes
+      any refusal the same day.
+    - 152500Z: the abacus-2 and utxo1 `wrapper` lines now start with the absolute path of `guard.sh` and end with
+      `-l <results root>/guard-runs.log`. Nothing else changed.
 - 21 Nov, 15:22-15:23 CET: **early push, against the agreed order.**
   - What happened: while I was editing the proposal, a new Mac shell found the private folder with uncommitted edits.
     The automatic run committed and pushed `cjt-dotfiles` (fc5507c, 3b6931f), applied the new script, and with it
