@@ -48,11 +48,21 @@ wake: on message
   - **stdin:** in a sibling `<id>.in`.
   - **utxo1:** today's alias is `utxo1.bdlt`; the SSH list will add short names.
   - **`mac.sh`:** received. The old log is copied in by the installer.
+- 21 Nov, 15:22-15:23 CET: **early push, against the agreed order.**
+  - What happened: while I was editing the proposal, a new Mac shell found the private folder with uncommitted edits.
+    The automatic run committed and pushed `cjt-dotfiles` (fc5507c, 3b6931f), applied the new script, and with it
+    `push_public` pushed `casamia/` for the first time (now tracking origin/main).
+  - No message says `cjt-dotfiles` was private by then, so it may have gone to a still-public repo. Contents:
+    `docs/STATE.md` and `docs/PROPOSAL-cjt-exec.md`, with host aliases, worker names and folder paths (no
+    addresses, users or keys).
+  - The public repo got only the script, `cjt-statusinfo` and the README, checked clean.
+  - The double sync is no longer needed.
+  - **Lesson:** before editing while pushes must wait, ask for `cjt-casamia auto off` (my sandbox cannot write its
+    flag), or commit at once.
 
 ## Next
-1. Repo split: when Tero says `cjt-dotfiles` is private, Tero runs `cjt-casamia sync` **twice** (the first run
-   pushes the configurations and installs the new script; the second, with `push_public`, fills the public repo).
-   Then check github.com/tessonec/cjt-casamia shows the script and README.
+1. Repo split: both repos are pushed (21 Nov, 15:23). Left to do: `cjt-dotfiles` to private (Claudio), and a
+   check that github.com/tessonec/cjt-casamia shows the script and README (I cannot reach GitHub from here).
    After that: switch `dot_local/bin/executable_cjt-casamia` and `executable_cjt-statusinfo` to chezmoi
    externals from the public repo (one source for the script; today both copies are kept identical by hand).
 2. Migrate keyless machines to a read-only deploy key (`cjt-casamia init` on each, user and root).
@@ -64,7 +74,7 @@ wake: on message
    `_handed-over/`, add it to `.chezmoiignore`). Then the skill `cjt-exec` via `skills-inbox/`.
 
 ## Waiting on
-- Tero: word that `cjt-dotfiles` is private (Claudio confirms with his passkey), then the double sync.
+- Claudio and Tero: is `cjt-dotfiles` private yet? If not, make it private now (feedback-needed 20261121T163001Z).
 - Tero: WORKERS.md row, and the folder move to `~/Projects/cjt-casamia` (on its move list for Claudio's OK).
   When Tero says it is done: redo `~/.local/share/chezmoi -> ~/Projects/cjt-casamia` and fix the paths in
   CLAUDE.md (lines 4 and 19; nothing else in either repo names the folder). Until then nothing changes.
