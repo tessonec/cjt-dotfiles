@@ -1,8 +1,11 @@
-# cjt-exec: proposal (rev 2, 21 Nov 2026, Casamia)
+# cjt-exec: proposal (rev 3, 21 Nov 2026, Casamia)
 
 For Claudio, Tero, Workbench and bdlt-lib-utxo (request 20261121T140741Z). Nothing is built until Claudio says OK.
 
-Rev 2 takes in Workbench's grant check (155500Z) and bdlt-lib-utxo's answers on `mac.sh` and `run.sh` (141335Z, 141500Z).
+- Rev 2 took in Workbench's grant check (155500Z) and bdlt-lib-utxo's answers on `mac.sh` and `run.sh` (141335Z,
+  141500Z).
+- Rev 3 takes in Workbench's grants file and identity rules (161500Z, replacing the registry line) and `mac.sh` itself
+  (141847Z).
 
 ## 1. Use (the same in every worker, on the Mac and in the Linux VM)
 
