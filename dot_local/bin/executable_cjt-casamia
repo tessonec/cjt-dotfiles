@@ -192,6 +192,28 @@ cmd_pull() {
   mkdir -p "$CACHE"; touch "$STAMP"
 }
 
+# dev machine only: the public script repository nested in the source folder (own git, SSH remote).
+# Commits its edits and pushes every commit not yet on GitHub (also the very first one: no upstream yet).
+# Only warns on failure, so it never blocks the push of the configurations.
+push_public() {
+  pub=$(cz source-path)/casamia
+  [ -d "$pub/.git" ] || return 0
+  git -C "$pub" remote get-url origin 2>/dev/null | grep -q '^git@' || return 0
+  if [ -n "$(git -C "$pub" status --porcelain)" ]; then
+    { git -C "$pub" add -A && git -C "$pub" commit -q -m "$1"; } ||
+      { warn "Commit failed in: $pub"; return 1; }
+  fi
+  if git -C "$pub" rev-parse -q --verify '@{u}' >/dev/null 2>&1; then
+    git -C "$pub" pull --rebase -q || { warn "Merge conflict — resolve in: $pub"; return 1; }
+    [ "$(git -C "$pub" rev-list --count '@{u}..HEAD')" = 0 ] && return 0
+    git -C "$pub" push -q || { warn "Push of the public script repository failed"; return 1; }
+  else
+    git -C "$pub" push -q -u origin HEAD:main ||
+      { warn "First push of the public script repository failed"; return 1; }
+  fi
+  say "Pushed the public script repository"
+}
+
 cmd_push() {
   msg=${1:-"$(id -un)@$(hostname): $(date '+%Y-%m-%d %H:%M')"}
   # take over only the files edited on this machine (never overwrite newer repo files)
@@ -206,6 +228,7 @@ cmd_push() {
   else cz git -- commit -q -m "$msg"; say "Committed: $msg"; fi
   src=$(cz source-path)
   git -C "$src" pull --rebase -q || die "Merge conflict — resolve in: $src"
+  push_public "$msg" || true
   if [ "$(git -C "$src" rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)" = 0 ]; then
     say "Nothing to push"; return 0
   fi
