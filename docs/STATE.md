@@ -23,6 +23,12 @@ wake: on message
   Tested: `sh -n`. Untested: a real run (the session could not write test repos; nothing was pushed).
   The public files were checked again for private data: only the GitHub user name in the repo URLs.
   Both repos committed locally, not pushed; trees clean, so a new Mac shell pushes nothing.
+- 21 Nov: Claudio gave Casamia `cjt-exec`, the bridge that lets workers with a grant run commands on the Mac
+  and the servers (request 20261121T140741Z). Proposal rev 1 written: `docs/PROPOSAL-cjt-exec.md` (copy in
+  Milestones `projects/cjt-casamia/`). Design: request files in the worker's own folder; a launchd bridge on the
+  Mac runs them over ssh; grants in a file only Tero writes, checked by Workbench; one log in
+  `~/Library/Logs/cjt-exec/`; deleting, sudo, pushing and sending are refused and go to Claudio through Tero.
+  Nothing built yet.
 
 ## Next
 1. Repo split: when Tero says `cjt-dotfiles` is private, Tero runs `cjt-casamia sync` **twice** (the first run
@@ -32,7 +38,11 @@ wake: on message
    externals from the public repo (one source for the script; today both copies are kept identical by hand).
 2. Migrate keyless machines to a read-only deploy key (`cjt-casamia init` on each, user and root).
 3. SSH server list in the private repo (`~/.ssh/config`: hosts, users, IPs, ports; keys untouched; no
-   encryption, Claudio 21 Nov).
+   encryption, Claudio 21 Nov). `cjt-exec` takes its host aliases from it.
+4. `cjt-exec` (after Claudio's OK on the proposal): build the worker script, the bridge and its launchd agent in
+   `casamia/`. Test with fake workers against `mac` in read mode and against the refusals. Go live for `mac`
+   read-only first, and on the servers when Claudio is home with the VPN. Take over `mac.sh` (old copy to
+   `_handed-over/`, add it to `.chezmoiignore`). Then the skill `cjt-exec` via `skills-inbox/`.
 
 ## Waiting on
 - Tero: word that `cjt-dotfiles` is private (Claudio confirms with his passkey), then the double sync.
@@ -40,5 +50,9 @@ wake: on message
   When Tero says it is done: redo `~/.local/share/chezmoi -> ~/Projects/cjt-casamia` and fix the paths in
   CLAUDE.md (lines 4 and 19; nothing else in either repo names the folder). Until then nothing changes.
 
+- Claudio: OK on the `cjt-exec` proposal and its four questions (feedback-needed 20261121T143001Z).
+- Workbench: where the grants file lives and the check the bridge calls. bdlt-lib-utxo: a copy of `mac.sh`
+  (my sandbox cannot read `~/Projects/bdlt-blocksci/`).
+
 ## Open questions
-- None.
+- `cjt-exec`: see section 7 of the proposal.
