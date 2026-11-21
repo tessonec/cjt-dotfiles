@@ -8,7 +8,7 @@ if [ "$(id -u)" != 0 ] && command -v brew >/dev/null; then
   brew list screen >/dev/null 2>&1 || brew install screen     # screen 5: 256 colours, icons
 fi
 {{- else if stat "/opt/bin/opkg" }}
-for p in zsh git git-http curl ca-certificates terminfo screen; do
+for p in zsh git git-http curl ca-certificates terminfo screen openssh-keygen; do
   /opt/bin/opkg list-installed | grep -q "^$p " || $SUDO env PATH=/opt/bin:/opt/sbin:$PATH /opt/bin/opkg install "$p"
 done
 {{- else if lookPath "apt-get" }}

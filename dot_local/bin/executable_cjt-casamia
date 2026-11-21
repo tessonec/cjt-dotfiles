@@ -2,7 +2,10 @@
 # cjt-casamia — the same shell setup on every machine (chezmoi + git).
 #
 # New machine (macOS, Linux, Asustor/Synology with Entware):
-#   curl -fsSL https://raw.githubusercontent.com/tessonec/cjt-dotfiles/main/dot_local/bin/executable_cjt-casamia | sh -s init
+#   curl -fsSL https://raw.githubusercontent.com/tessonec/cjt-casamia/main/cjt-casamia | sh -s init
+#
+# The script is public; the configurations live in a private repository (CASAMIA_REPO_SSH).
+# Accounts without a GitHub SSH key get a read-only deploy key, created by 'init'.
 #
 # Commands:
 #   init              install chezmoi and apply the dotfiles for the current user
@@ -34,7 +37,8 @@ GIT_TERMINAL_PROMPT=0; export GIT_TERMINAL_PROMPT   # never ask for a GitHub pas
 TMPDIR=${XDG_CACHE_HOME:-$HOME/.cache}/cjt-casamia/tmp; mkdir -p "$TMPDIR"; export TMPDIR
 
 REPO_SSH=${CASAMIA_REPO_SSH:-git@github.com:tessonec/cjt-dotfiles.git}
-REPO_HTTPS=${CASAMIA_REPO_HTTPS:-https://github.com/tessonec/cjt-dotfiles.git}
+REPO_WEB=${CASAMIA_REPO_WEB:-https://github.com/tessonec/cjt-dotfiles}
+DEPLOY_KEY=$HOME/.ssh/cjt-casamia-deploy
 CACHE=${XDG_CACHE_HOME:-$HOME/.cache}
 STAMP=$CACHE/cjt-casamia.last
 OFF=$CACHE/cjt-casamia.off
@@ -59,14 +63,31 @@ install_chezmoi() {
   fi
 }
 
-pick_repo() {
-  # SSH if this account can reach GitHub with a key (can push), else read-only HTTPS
-  if [ "$(id -u)" != 0 ] && command -v git >/dev/null 2>&1 &&
-     GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=5" git ls-remote "$REPO_SSH" >/dev/null 2>&1; then
-    echo "$REPO_SSH"
-  else
-    echo "$REPO_HTTPS"
-  fi
+can_reach() {   # can_reach "<ssh command>": the private repository answers with that key
+  GIT_SSH_COMMAND="$1 -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new" \
+    git ls-remote "$REPO_SSH" >/dev/null 2>&1
+}
+
+# Prints the ssh command this account uses for the private repository; sets one up if needed
+repo_ssh() {
+  if can_reach ssh; then echo ssh; return 0; fi                       # own GitHub key (can push)
+  key="ssh -i $DEPLOY_KEY -o IdentitiesOnly=yes"
+  if [ -f "$DEPLOY_KEY" ] && can_reach "$key"; then echo "$key"; return 0; fi
+  command -v ssh-keygen >/dev/null 2>&1 || die "ssh-keygen is needed (NAS: opkg install openssh-keygen)"
+  mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+  [ -f "$DEPLOY_KEY" ] || ssh-keygen -q -t ed25519 -N '' -C "cjt-casamia read-only $(id -un)@$(hostname)" -f "$DEPLOY_KEY"
+  {
+    say "This account needs read access to the private configurations. Add this key once:"
+    echo "    $REPO_WEB/settings/keys/new"
+    echo "    Title: $(id -un)@$(hostname)   (leave 'Allow write access' unticked)"
+    echo
+    cat "$DEPLOY_KEY.pub"
+    echo
+    printf 'Press Enter when it is added... '
+  } >&2
+  read -r _ </dev/tty || true
+  can_reach "$key" || die "GitHub does not accept the key yet. Add it, then run 'cjt-casamia init' again."
+  echo "$key"
 }
 
 # Make an existing machine safe to take over: back up old configs, keep conda,
@@ -138,13 +159,20 @@ cmd_init() {
   install_chezmoi
   prepare_home
   if [ -d "$(cz source-path 2>/dev/null)/.git" ]; then
+    src=$(cz source-path)
+    sshcmd=$(repo_ssh)
+    git -C "$src" remote set-url origin "$REPO_SSH"      # was a public https URL before 21 Nov
+    if [ "$sshcmd" = ssh ]; then git -C "$src" config --unset core.sshCommand 2>/dev/null || true
+    else git -C "$src" config core.sshCommand "$sshcmd -o StrictHostKeyChecking=accept-new"; fi
     say "Already initialised — refreshing config and updating"
     cz init                # regenerates ~/.config/chezmoi/chezmoi.toml (no pager, etc.)
     cz update --force
   else
-    repo=$(pick_repo)
-    say "Applying dotfiles from $repo as $(id -un)@$(hostname)"
-    cz init --apply --force "$repo"
+    sshcmd=$(repo_ssh)
+    say "Applying the configurations as $(id -un)@$(hostname)"
+    GIT_SSH_COMMAND="$sshcmd -o StrictHostKeyChecking=accept-new" cz init --force "$REPO_SSH"
+    [ "$sshcmd" = ssh ] || git -C "$(cz source-path)" config core.sshCommand "$sshcmd -o StrictHostKeyChecking=accept-new"
+    cz apply --force
   fi
   ensure_login_zsh
   mkdir -p "$CACHE"; touch "$STAMP"
@@ -157,6 +185,9 @@ cmd_pull() {
     warn "Local edits not yet pushed:"; local_edits
     warn "Run 'cjt-casamia push' first (or 'cjt-casamia sync')."; exit 1
   fi
+  case $(git -C "$(cz source-path)" remote get-url origin 2>/dev/null) in
+    https:*) die "This machine still uses the old public address. Run 'cjt-casamia init' once to set up access." ;;
+  esac
   say "Pulling"; cz update --force
   mkdir -p "$CACHE"; touch "$STAMP"
 }
@@ -242,6 +273,13 @@ cmd_autopull() {
   if [ -n "$(git -C "$src" status --porcelain 2>/dev/null)" ] &&
      git -C "$src" remote get-url origin 2>/dev/null | grep -q '^git@'; then
     ( cmd_push "auto: $(id -un)@$(hostname) $(date '+%Y-%m-%d %H:%M')" ) >/dev/null 2>&1 && apply=1
+  fi
+  # dev machine only: the public script repository nested in the source folder
+  pub=$src/casamia
+  if [ -d "$pub/.git" ] && [ -n "$(git -C "$pub" status --porcelain 2>/dev/null)" ] &&
+     git -C "$pub" remote get-url origin 2>/dev/null | grep -q '^git@'; then
+    ( git -C "$pub" add -A && git -C "$pub" commit -q -m "auto: $(id -un)@$(hostname) $(date '+%Y-%m-%d %H:%M')" &&
+      { git -C "$pub" pull --rebase -q || true; } && git -C "$pub" push -q -u origin main ) >/dev/null 2>&1
   fi
   if [ -z "$(find "$STAMP" -mmin -720 2>/dev/null)" ]; then
     touch "$STAMP"

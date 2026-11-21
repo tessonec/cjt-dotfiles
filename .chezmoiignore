@@ -1,4 +1,9 @@
 README.md
+CLAUDE.md
+docs
+docs/**
+casamia
+casamia/**
 {{- if not (stat "/opt/bin/opkg") }}
 .profile
 {{- end }}
